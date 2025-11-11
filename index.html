@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DE LUCIA ✂ VISAGISMO — Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- PWA manifest -->
+    <link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#080808;
+  --panel:#0f0f0f;
+  --gold-1: #f7e9c7;
+  --gold-2: #e6c96a;
+  --gold-3: #c9a24a;
+  --gold-4: #a5762a;
+  --muted:#b7b7b7;
+}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,var(--bg),#050505);color:#eee;font-family:Inter,system-ui,Arial,Helvetica,sans-serif}
+.container{max-width:1400px;margin:18px auto;padding:18px;}
+.header{display:flex;align-items:center;gap:14px;justify-content:center;margin-bottom:12px}
+.logo{display:flex;align-items:center;gap:12px;color:var(--gold-3)}
+.logo .scissors{font-size:30px;transform:rotate(-8deg)}
+.logo h1{margin:0;font-size:20px;letter-spacing:1px}
+.app{display:grid;grid-template-columns:1fr 360px;gap:18px}
+.stage{position:relative;background:#000;border-radius:12px;overflow:hidden;height:72vh;min-height:420px;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 40px rgba(0,0,0,0.7)}
+#photoCanvas,#drawCanvas{position:absolute;top:0;left:0;width:100%;height:100%}
+.stagePlaceholder{position:absolute;color:var(--muted);font-size:16px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.btn{
+  background:linear-gradient(180deg,var(--gold-2),var(--gold-4));
+  border:none;padding:10px 14px;border-radius:10px;color:#0b0b0b;font-weight:700;cursor:pointer;
+  box-shadow:0 6px 18px rgba(0,0,0,0.6);transition:opacity .12s, background .12s, transform .08s;
+  backdrop-filter: blur(2px);
+}
+.btn:hover{opacity:.85}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:#ddd}
+.palette-preview{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.swatch{width:34px;height:34px;border-radius:8px;cursor:pointer;border:2px solid rgba(0,0,0,0.25);box-shadow:inset 0 -2px 0 rgba(0,0,0,0.12)}
+.swatch.selected{outline:3px solid rgba(255,255,255,0.04)}
+.select{padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:#ddd}
+.side{display:flex;flex-direction:column;gap:12px}
+.card{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));padding:12px;border-radius:10px}
+.job-area{position:fixed;left:18px;bottom:18px;width:360px;background:#0b0b0b;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+.job-area textarea{width:100%;height:160px;background:transparent;border:none;color:#eee;resize:vertical;padding:8px}
+.footer-note{color:var(--muted);font-size:13px;margin-top:8px}
+
+/* Compare modal */
+#sliderModal{position:fixed;inset:0;background:rgba(0,0,0,0.92);display:none;align-items:center;justify-content:center;z-index:9999}
+.slider-wrap{position:relative;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;align-items:center;gap:12px}
+.viewer{position:relative;max-width:100%;max-height:80vh;overflow:hidden;border-radius:8px;background:#0a0a0a}
+.viewer img{display:block;max-width:100%;height:auto}
+#afterImg{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;clip-path:inset(0 50% 0 0)}
+#beforeImg{width:100%;height:100%;object-fit:contain}
+#sliderRange{width:360px}
+#closeSlider{position:absolute;top:18px;right:22px;color:var(--gold-3);font-size:22px;cursor:pointer}
+
+/* responsive */
+@media(max-width:1100px){.app{grid-template-columns:1fr}.side{order:2}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="logo"><div class="scissors">✂</div><div><h1>DE LUCIA</h1><div style="font-size:12px;color:#ddd">VISAGISMO</div></div></div>
+  </div>
+
+  <div class="app">
+    <main>
+      <div class="stage" id="stage">
+        <canvas id="photoCanvas" aria-label="Area foto"></canvas>
+        <canvas id="drawCanvas" aria-label="Layer disegno"></canvas>
+        <div class="stagePlaceholder" id="stagePlaceholder">Clicca su <strong>Scegli foto</strong> o <strong>Apri Webcam</strong></div>
+      </div>
+
+      <div class="controls" id="controlsRow">
+        <input id="loadPhoto" type="file" accept="image/*" style="display:none">
+        <button class="btn" id="btnChoose">Scegli foto</button>
+        <button class="btn" id="openCam">Apri Webcam</button>
+        <button class="btn" id="closeCam">Chiudi Webcam</button>
+        <button class="btn" id="btnCapture">Scatta foto</button>
+
+        <button class="btn ghost" id="undo">⟵ Indietro</button>
+        <button class="btn ghost" id="redo">Avanti ⟶</button>
+
+        <button class="btn" id="btnLoadAfter">Carica Seconda Foto</button>
+        <button class="btn" id="btnCompare">Prima / Dopo</button>
+        <button class="btn" id="openGemini">Genera (Gemini)</button>
+        <!-- Additional button to open Gemini named "Genera AI" as requested -->
+        <button class="btn" id="btnGenerateAI">Genera AI</button>
+        <button class="btn" id="exportPdf">Esporta PDF</button>
+      </div>
+
+      <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="palette-preview" id="palettePreview" aria-hidden="false"></div>
+
+        <select id="paletteSelect" class="select" title="Seleziona gamma colore">
+          <option value="gold">Toni Oro / Caldi</option>
+          <option value="skin">Palette Pelle</option>
+          <option value="hair">Palette Capelli</option>
+          <option value="full">Tavolozza Completa</option>
+        </select>
+
+        <input type="color" id="colorPicker" title="Colore personalizzato" style="margin-left:6px;border-radius:6px;padding:4px">
+        <div class="footer-note">Anteprima primi 4 colori — seleziona una palette dal menu per cambiare</div>
+      </div>
+    </main>
+
+    <aside class="side">
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">Strumenti</h3>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <label style="color:var(--muted);font-size:13px">Pennello</label>
+          <input id="brushRange" type="range" min="2" max="80" value="18" />
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <label style="color:var(--muted);font-size:13px">Opacità</label>
+          <input id="opacityRange" type="range" min="0.05" max="1" step="0.05" value="0.6" />
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button id="toggleDraw" class="btn ghost">Attiva Disegno</button>
+          <button id="clearDraw" class="btn ghost">Cancella</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">Anteprime</h3>
+        <div style="display:flex;gap:8px">
+          <div id="thumbBefore" style="width:120px;height:120px;background:#0b0b0b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)">Prima</div>
+          <div id="thumbAfter" style="width:120px;height:120px;background:#0b0b0b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted)">Dopo</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px 0">Esporta</h3>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button id="exportPdfSide" class="btn">Esporta PDF</button>
+          <div style="font-size:12px;color:var(--muted)">Il PDF userà le immagini \"Prima\" e \"Dopo\" caricate</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="sliderModal">
+  <div class="slider-wrap">
+    <div id="closeSlider">✕</div>
+    <div class="viewer" id="viewer">
+      <img id="beforeImg" alt="Prima">
+      <img id="afterImg" alt="Dopo">
+    </div>
+    <input type="range" id="sliderRange" min="0" max="100" value="50">
+  </div>
+</div>
+
+      <!-- Job description collapsible area: shows only header initially. Click on the header to toggle the note area -->
+      <div class="job-area" id="jobArea" aria-label="Descrizione lavoro">
+        <div id="jobToggle" class="job-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
+          <strong style="color:var(--gold-3)">Descrizione Lavoro</strong>
+          <span id="jobIcon" style="color:var(--gold-3);font-size:14px;">▼</span>
+        </div>
+        <div id="jobContent" class="job-content" style="display:none;margin-top:6px;">
+          <textarea id="jobNotes" placeholder="Scrivi qui le modifiche, consigli e note..." style="width:100%;height:160px;background:transparent;border:none;color:#eee;resize:vertical;padding:8px"></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px"><button id="saveNote" class="btn ghost">Salva nota</button></div>
+        </div>
+      </div>
+
+<script>
+/* --- Helpers and state --- */
+const isMobile = () => window.innerWidth <= 800;
+const photoCanvas = document.getElementById('photoCanvas');
+const drawCanvas = document.getElementById('drawCanvas');
+const ctx = photoCanvas.getContext('2d');
+const ctxDraw = drawCanvas.getContext('2d');
+const stagePlaceholder = document.getElementById('stagePlaceholder');
+
+let mainImage = new Image();
+let afterImageSrc = null;
+let stream = null;
+let drawEnabled = false;
+let drawing = false;
+let brushSize = 18;
+let brushOpacity = 0.6;
+let currentColor = '#c9a24a';
+let undoStack = [], redoStack = [];
+
+/* Resize & fit: adjust canvas size and draw image with contain fit (no over-zoom) */
+function resizeCanvases() {
+  const rect = photoCanvas.getBoundingClientRect();
+  const w = Math.max(rect.width, 100);
+  const h = Math.max(rect.height, 100);
+  // use devicePixelRatio for crispness
+  photoCanvas.width = Math.round(w * devicePixelRatio);
+  photoCanvas.height = Math.round(h * devicePixelRatio);
+  drawCanvas.width = photoCanvas.width;
+  drawCanvas.height = photoCanvas.height;
+  photoCanvas.style.width = rect.width + 'px';
+  photoCanvas.style.height = rect.height + 'px';
+  drawCanvas.style.width = rect.width + 'px';
+  drawCanvas.style.height = rect.height + 'px';
+  // re-draw image if exists
+  if (mainImage.src) drawImageToCanvas(mainImage);
+  // restore overlay if present
+  if (undoStack.length) restore(undoStack[undoStack.length-1]);
+}
+
+/* draw image with contain keeping aspect and centered */
+function drawImageToCanvas(img) {
+  const cw = photoCanvas.width;
+  const ch = photoCanvas.height;
+  ctx.clearRect(0,0,cw,ch);
+  // compute scale
+  const ratio = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
+  const nw = Math.round(img.naturalWidth * ratio);
+  const nh = Math.round(img.naturalHeight * ratio);
+  const dx = Math.round((cw - nw) / 2);
+  const dy = Math.round((ch - nh) / 2);
+  // draw with native pixel scaling
+  ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, dx, dy, nw, nh);
+}
+
+/* Load photo file */
+document.getElementById('btnChoose').addEventListener('click', ()=>document.getElementById('loadPhoto').click());
+document.getElementById('loadPhoto').addEventListener('change', (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const url = URL.createObjectURL(f);
+  mainImage = new Image();
+  mainImage.crossOrigin = "anonymous";
+  mainImage.onload = ()=>{ resizeCanvases(); saveState(); stagePlaceholder.style.display='none'; setThumb(photoCanvas.toDataURL(),'thumbBefore'); };
+  mainImage.src = url;
+});
+
+/* Camera controls */
+document.getElementById('openCam').addEventListener('click', async ()=>{
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({video:{width:isMobile()?640:1280}, audio:false});
+    const video = document.createElement('video');
+    video.autoplay = true; video.playsInline = true; video.muted = true;
+    video.srcObject = stream;
+    video.style.position = 'absolute'; video.style.top='0'; video.style.left='0';
+    video.style.width = '100%'; video.style.height = '100%'; video.style.objectFit='cover';
+    video.id = 'liveVideo';
+    document.getElementById('stage').appendChild(video);
+    stagePlaceholder.style.display = 'none';
+  }catch(err){ alert('Impossibile aprire la webcam: '+err.message); }
+});
+document.getElementById('closeCam').addEventListener('click', ()=>{
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  const v = document.getElementById('liveVideo'); if(v) v.remove();
+});
+
+/* Capture from video */
+document.getElementById('btnCapture').addEventListener('click', ()=>{
+  const v = document.getElementById('liveVideo');
+  if(!v){ alert('Webcam non attiva'); return; }
+  // draw video frame into canvas with contain logic: create temp image
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = v.videoWidth; tmpCanvas.height = v.videoHeight;
+  const tctx = tmpCanvas.getContext('2d');
+  tctx.drawImage(v,0,0);
+  const data = tmpCanvas.toDataURL('image/jpeg',0.95);
+  mainImage = new Image(); mainImage.onload = ()=>{ resizeCanvases(); saveState(); setThumb(photoCanvas.toDataURL(),'thumbBefore'); }; mainImage.src = data;
+  // remove video
+  v.remove();
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+});
+
+/* Drawing layer */
+document.getElementById('toggleDraw').addEventListener('click', ()=>{
+  drawEnabled = !drawEnabled;
+  drawCanvas.style.pointerEvents = drawEnabled ? 'auto' : 'none';
+  document.getElementById('toggleDraw').textContent = drawEnabled ? 'Disegno: ON' : 'Attiva Disegno';
+});
+document.getElementById('clearDraw').addEventListener('click', ()=>{
+  ctxDraw.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+  saveState();
+});
+document.getElementById('brushRange').addEventListener('input', (e)=>{ brushSize = parseInt(e.target.value,10); });
+document.getElementById('opacityRange').addEventListener('input', (e)=>{ brushOpacity = parseFloat(e.target.value); });
+
+drawCanvas.addEventListener('mousedown', (ev)=>{
+  if(!drawEnabled) return;
+  drawing = true;
+  ctxDraw.globalAlpha = brushOpacity;
+  ctxDraw.strokeStyle = currentColor;
+  ctxDraw.lineWidth = brushSize * devicePixelRatio;
+  ctxDraw.lineJoin = ctxDraw.lineCap = 'round';
+  const rect = drawCanvas.getBoundingClientRect();
+  ctxDraw.beginPath();
+  ctxDraw.moveTo((ev.clientX - rect.left) * devicePixelRatio, (ev.clientY - rect.top) * devicePixelRatio);
+});
+drawCanvas.addEventListener('mousemove', (ev)=>{
+  if(!drawing) return;
+  const rect = drawCanvas.getBoundingClientRect();
+  ctxDraw.lineTo((ev.clientX - rect.left) * devicePixelRatio, (ev.clientY - rect.top) * devicePixelRatio);
+  ctxDraw.stroke();
+});
+window.addEventListener('mouseup', ()=>{
+  if(drawing){
+    drawing = false;
+    // merge overlay into main canvas for saving
+    ctx.drawImage(drawCanvas, 0, 0, drawCanvas.width, drawCanvas.height, 0, 0, photoCanvas.width, photoCanvas.height);
+    ctxDraw.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+    saveState();
+  }
+});
+
+/* Undo/Redo using dataURL snapshots */
+function saveState(){
+  try{
+    const snap = photoCanvas.toDataURL('image/jpeg',0.9);
+    undoStack.push(snap);
+    // limit history
+    if(undoStack.length>40) undoStack.shift();
+    redoStack = [];
+    updateUndoBtns();
+  }catch(e){ console.warn('saveState error',e); }
+}
+function restore(dataUrl){
+  const imgx = new Image();
+  imgx.onload = ()=>{ ctx.clearRect(0,0,photoCanvas.width,photoCanvas.height); ctx.drawImage(imgx,0,0,photoCanvas.width,photoCanvas.height); };
+  imgx.src = dataUrl;
+}
+function updateUndoBtns(){
+  document.getElementById('undo').style.opacity = undoStack.length>1? '1':'0.4';
+  document.getElementById('redo').style.opacity = redoStack.length>0? '1':'0.4';
+}
+document.getElementById('undo').addEventListener('click', ()=>{
+  if(undoStack.length>1){
+    redoStack.push(undoStack.pop());
+    restore(undoStack[undoStack.length-1]);
+    updateUndoBtns();
+  }
+});
+document.getElementById('redo').addEventListener('click', ()=>{
+  if(redoStack.length){
+    const it = redoStack.pop();
+    undoStack.push(it);
+    restore(it);
+    updateUndoBtns();
+  }
+});
+
+/* Thumbnails */
+function setThumb(dataUrl, elId){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.style.backgroundImage = `url(${dataUrl})`;
+  el.style.backgroundSize = 'cover';
+  el.style.backgroundPosition = 'center';
+}
+
+/* Load second image */
+document.getElementById('btnLoadAfter').addEventListener('click', ()=>{
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange = (e)=>{ const f=e.target.files[0]; if(!f) return; afterImageSrc = URL.createObjectURL(f); setThumb(afterImageSrc,'thumbAfter'); };
+  inp.click();
+});
+
+/* Compare modal & slider */
+const sliderModal = document.getElementById('sliderModal');
+const beforeImg = document.getElementById('beforeImg');
+const afterImg = document.getElementById('afterImg');
+const sliderRange = document.getElementById('sliderRange');
+document.getElementById('btnCompare').addEventListener('click', ()=>{
+  if(!mainImage.src || !afterImageSrc){ alert('Carica sia la foto \"Prima\" che la foto \"Dopo\" per usare la vista comparativa.'); return; }
+  beforeImg.src = mainImage.src;
+  afterImg.src = afterImageSrc;
+  sliderModal.style.display = 'flex';
+});
+document.getElementById('closeSlider').addEventListener('click', ()=> sliderModal.style.display='none');
+sliderRange.addEventListener('input', (e)=> { const v = parseInt(e.target.value,10); afterImg.style.clipPath = `inset(0 ${100-v}% 0 0)`; });
+
+/* Palette data */
+const palettes = {
+  gold: ['#f7e9c7','#f3d98b','#e6c96a','#d1b04a','#c9a24a','#b7862e','#a5762a','#7f5a22'],
+  skin: ['#fff1e6','#f7dcc7','#efc9ad','#e2b08f','#c9a07a','#ad8a6b','#8a5a36','#69432a'],
+  hair: ['#e6d6c6','#c9b69b','#a78863','#8a5a36','#6b4a33','#4a3426','#2e1f16','#1b120c'],
+  full: ['#000000','#111111','#333333','#555555','#777777','#999999','#bbbbbb','#ffffff',
+         '#ff0000','#ff7f50','#ffd700','#ffff00','#7fff00','#00ff7f','#00ffff','#007fff',
+         '#7f00ff','#ff00ff','#ff007f','#f4e1d2']
+};
+
+/* populate preview — show first 4 colors (or fewer) */
+function populatePreview(key){
+  const preview = document.getElementById('palettePreview');
+  preview.innerHTML = '';
+  const arr = palettes[key] || palettes.full;
+  const toShow = arr.slice(0,4);
+  toShow.forEach(c=>{
+    const d = document.createElement('div'); d.className='swatch'; d.style.background = c; d.dataset.color = c;
+    d.addEventListener('click', ()=>{ currentColor = c; document.getElementById('colorPicker').value = rgbToHex(c); highlightSelected(d); });
+    preview.appendChild(d);
+  });
+  // also add a small 'more' button
+  const more = document.createElement('button'); more.className='btn ghost'; more.textContent='Tutti'; more.addEventListener('click', ()=> openPaletteMenu(key));
+  preview.appendChild(more);
+}
+function highlightSelected(node){
+  document.querySelectorAll('.palette-preview .swatch').forEach(s=>s.classList.remove('selected'));
+  if(node) node.classList.add('selected');
+}
+
+/* open palette modal-like dropdown (simple) */
+function openPaletteMenu(key){
+  const arr = palettes[key] || palettes.full;
+  // create basic menu
+  const menu = document.createElement('div');
+  menu.style.position='absolute'; menu.style.left='20px'; menu.style.top='120px'; menu.style.background='#0b0b0b'; menu.style.padding='10px'; menu.style.borderRadius='8px'; menu.style.boxShadow='0 8px 30px rgba(0,0,0,0.6)'; menu.style.zIndex=99999;
+  arr.forEach(c=>{
+    const s = document.createElement('div'); s.className='swatch'; s.style.display='inline-block'; s.style.margin='4px'; s.style.background=c;
+    s.addEventListener('click', ()=>{ currentColor=c; document.getElementById('colorPicker').value = rgbToHex(c); document.body.removeChild(menu); });
+    menu.appendChild(s);
+  });
+  const close = document.createElement('div'); close.textContent='Chiudi'; close.style.marginTop='8px'; close.style.color='var(--gold-3)'; close.style.cursor='pointer'; close.addEventListener('click', ()=>document.body.removeChild(menu));
+  menu.appendChild(close);
+  document.body.appendChild(menu);
+}
+
+/* helper rgb hex conversion */
+function rgbToHex(rgb){
+  if(rgb.startsWith('#')) return rgb;
+  const nums = rgb.replace(/[^\d,]/g,'').split(',');
+  return '#'+nums.map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');
+}
+
+/* colorPicker sync */
+document.getElementById('colorPicker').addEventListener('input', (e)=>{ currentColor = e.target.value; });
+
+document.getElementById('paletteSelect').addEventListener('change', (e)=> populatePreview(e.target.value));
+
+/* initialize preview */
+populatePreview('gold');
+
+/* export PDF using jsPDF CDN (online) */
+async function exportPdf(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'pt',format:'a4'});
+  const margin = 40;
+  // compose combined before image
+  const beforeData = photoCanvas.toDataURL('image/jpeg',0.92);
+  const imgW = 500;
+  doc.setFontSize(18);
+  doc.text('DE LUCIA — Report Visagismo', margin, 40);
+  doc.addImage(beforeData,'JPEG',margin,60,imgW, imgW * photoCanvas.height/photoCanvas.width);
+  if(afterImageSrc){
+    // load after and add
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = ()=> {
+      // draw into temp canvas to scale
+      const tmp = document.createElement('canvas'); tmp.width=img.width; tmp.height=img.height;
+      tmp.getContext('2d').drawImage(img,0,0);
+      doc.addImage(tmp.toDataURL('image/jpeg',0.9),'JPEG',margin, 80 + imgW * photoCanvas.height/photoCanvas.width, imgW, imgW * img.height/img.width);
+      doc.setFontSize(12);
+      const desc = document.getElementById('jobNotes').value || '';
+      const lines = doc.splitTextToSize(desc, 500);
+      doc.text(lines, margin, 100 + imgW * photoCanvas.height/photoCanvas.width + imgW * img.height/img.width + 20);
+      doc.save('Report_Visagismo.pdf');
+    };
+    img.src = afterImageSrc;
+  } else {
+    const desc = document.getElementById('jobNotes').value || '';
+    const lines = doc.splitTextToSize(desc, 500);
+    doc.text(lines, margin, 100 + imgW * photoCanvas.height/photoCanvas.width);
+    doc.save('Report_Visagismo.pdf');
+  }
+}
+document.getElementById('exportPdf').addEventListener('click', exportPdf);
+document.getElementById('exportPdfSide').addEventListener('click', exportPdf);
+
+/* Save notes */
+document.getElementById('saveNote').addEventListener('click', ()=>{
+  localStorage.setItem('visagismo_note', document.getElementById('jobNotes').value);
+  alert('Nota salvata localmente');
+});
+window.addEventListener('load', ()=>{
+  const n = localStorage.getItem('visagismo_note');
+  if(n) document.getElementById('jobNotes').value = n;
+});
+
+/* open Gemini */
+document.getElementById('openGemini').addEventListener('click', ()=> window.open('https://gemini.google.com','_blank'));
+
+/* open Gemini via the new "Genera AI" button */
+document.getElementById('btnGenerateAI').addEventListener('click', ()=> window.open('https://gemini.google.com','_blank'));
+
+/* toggle visibility of the job description area */
+document.getElementById('jobToggle').addEventListener('click', ()=>{
+  const content = document.getElementById('jobContent');
+  const icon = document.getElementById('jobIcon');
+  const hidden = content.style.display === 'none' || content.style.display === '';
+  content.style.display = hidden ? 'block' : 'none';
+  // flip the arrow icon
+  icon.textContent = hidden ? '▲' : '▼';
+});
+
+/* load image to canvas when mainImage set */
+function drawImageIfReady(){
+  if(!mainImage || !mainImage.src) return;
+  drawImageToCanvas(mainImage);
+}
+mainImage.onload = ()=> { resizeCanvases(); saveState(); setThumb(photoCanvas.toDataURL(),'thumbBefore'); };
+
+/* initial resize and responsive */
+window.addEventListener('resize', resizeCanvases);
+resizeCanvases();
+
+/* Populate full palette if user clicks 'Tutti' via openPaletteMenu implemented above */
+
+/* end of script */
+</script>
+    <!-- Register service worker for offline support -->
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function() {
+                navigator.serviceWorker.register("service-worker.js").catch(function(error) {
+                    console.log("Service worker registration failed:", error);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
