@@ -282,6 +282,7 @@ document.getElementById('clearDraw').addEventListener('click', ()=>{
 document.getElementById('brushRange').addEventListener('input', (e)=>{ brushSize = parseInt(e.target.value,10); });
 document.getElementById('opacityRange').addEventListener('input', (e)=>{ brushOpacity = parseFloat(e.target.value); });
 
+// Support drawing on both desktop (mouse) and mobile (touch) devices
 drawCanvas.addEventListener('mousedown', (ev)=>{
   if(!drawEnabled) return;
   drawing = true;
@@ -300,6 +301,38 @@ drawCanvas.addEventListener('mousemove', (ev)=>{
   ctxDraw.stroke();
 });
 window.addEventListener('mouseup', ()=>{
+  if(drawing){
+    drawing = false;
+    // merge overlay into main canvas for saving
+    ctx.drawImage(drawCanvas, 0, 0, drawCanvas.width, drawCanvas.height, 0, 0, photoCanvas.width, photoCanvas.height);
+    ctxDraw.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+    saveState();
+  }
+});
+
+// Touch events for mobile drawing. These mirror the mouse events above
+drawCanvas.addEventListener('touchstart', (ev) => {
+  if(!drawEnabled) return;
+  drawing = true;
+  ctxDraw.globalAlpha = brushOpacity;
+  ctxDraw.strokeStyle = currentColor;
+  ctxDraw.lineWidth = brushSize * devicePixelRatio;
+  ctxDraw.lineJoin = ctxDraw.lineCap = 'round';
+  const rect = drawCanvas.getBoundingClientRect();
+  const touch = ev.touches[0];
+  ctxDraw.beginPath();
+  ctxDraw.moveTo((touch.clientX - rect.left) * devicePixelRatio, (touch.clientY - rect.top) * devicePixelRatio);
+});
+drawCanvas.addEventListener('touchmove', (ev) => {
+  if(!drawing) return;
+  // Prevent scrolling while drawing
+  ev.preventDefault();
+  const rect = drawCanvas.getBoundingClientRect();
+  const touch = ev.touches[0];
+  ctxDraw.lineTo((touch.clientX - rect.left) * devicePixelRatio, (touch.clientY - rect.top) * devicePixelRatio);
+  ctxDraw.stroke();
+});
+window.addEventListener('touchend', () => {
   if(drawing){
     drawing = false;
     // merge overlay into main canvas for saving
