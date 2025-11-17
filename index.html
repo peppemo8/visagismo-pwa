@@ -66,7 +66,10 @@ body{margin:0;background:linear-gradient(180deg,var(--bg),#050505);color:#eee;fo
 <body>
 <div class="container">
   <div class="header">
-    <div class="logo"><div class="scissors">✂</div><div><h1>DE LUCIA</h1><div style="font-size:12px;color:#ddd">VISAGISMO</div></div></div>
+    <!-- Updated logo and title: display the provided logo image -->
+    <div class="logo">
+      <img src="app-icon-192.png" alt="De&nbsp;Lucia&nbsp;Parrucchiere&nbsp;Uomo&nbsp;Logo" style="height:60px;border-radius:6px;">
+    </div>
   </div>
 
   <div class="app">
@@ -92,7 +95,7 @@ body{margin:0;background:linear-gradient(180deg,var(--bg),#050505);color:#eee;fo
         <button class="btn" id="openGemini">Genera (Gemini)</button>
         <!-- Additional button to open Gemini named "Genera AI" as requested -->
         <button class="btn" id="btnGenerateAI">Genera AI</button>
-        <button class="btn" id="exportPdf">Esporta PDF</button>
+        <!-- Removed export PDF button -->
       </div>
 
       <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -138,7 +141,7 @@ body{margin:0;background:linear-gradient(180deg,var(--bg),#050505);color:#eee;fo
       <div class="card">
         <h3 style="margin:0 0 8px 0">Esporta</h3>
         <div style="display:flex;flex-direction:column;gap:8px">
-          <button id="exportPdfSide" class="btn">Esporta PDF</button>
+          <!-- Removed side export PDF button -->
           <div style="font-size:12px;color:var(--muted)">Il PDF userà le immagini \"Prima\" e \"Dopo\" caricate</div>
         </div>
       </div>
@@ -503,8 +506,7 @@ async function exportPdf(){
     doc.save('Report_Visagismo.pdf');
   }
 }
-document.getElementById('exportPdf').addEventListener('click', exportPdf);
-document.getElementById('exportPdfSide').addEventListener('click', exportPdf);
+// Removed export PDF listeners because the buttons are removed
 
 /* Save notes */
 document.getElementById('saveNote').addEventListener('click', ()=>{
