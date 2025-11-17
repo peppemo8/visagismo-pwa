@@ -45,8 +45,7 @@ body{margin:0;background:linear-gradient(180deg,var(--bg),#050505);color:#eee;fo
 .select{padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:#ddd}
 .side{display:flex;flex-direction:column;gap:12px}
 .card{background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));padding:12px;border-radius:10px}
-.job-area{position:fixed;left:18px;bottom:18px;width:360px;background:#0b0b0b;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
-.job-area textarea{width:100%;height:160px;background:transparent;border:none;color:#eee;resize:vertical;padding:8px}
+/* removed job-area styles since the job description box has been removed */
 .footer-note{color:var(--muted);font-size:13px;margin-top:8px}
 
 /* Compare modal */
@@ -160,17 +159,7 @@ body{margin:0;background:linear-gradient(180deg,var(--bg),#050505);color:#eee;fo
   </div>
 </div>
 
-      <!-- Job description collapsible area: shows only header initially. Click on the header to toggle the note area -->
-      <div class="job-area" id="jobArea" aria-label="Descrizione lavoro">
-        <div id="jobToggle" class="job-header" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;">
-          <strong style="color:var(--gold-3)">Descrizione Lavoro</strong>
-          <span id="jobIcon" style="color:var(--gold-3);font-size:14px;">▼</span>
-        </div>
-        <div id="jobContent" class="job-content" style="display:none;margin-top:6px;">
-          <textarea id="jobNotes" placeholder="Scrivi qui le modifiche, consigli e note..." style="width:100%;height:160px;background:transparent;border:none;color:#eee;resize:vertical;padding:8px"></textarea>
-          <div style="display:flex;justify-content:flex-end;margin-top:8px"><button id="saveNote" class="btn ghost">Salva nota</button></div>
-        </div>
-      </div>
+      <!-- Removed job description area -->
 
 <script>
 /* --- Helpers and state --- */
@@ -391,9 +380,28 @@ function setThumb(dataUrl, elId){
 }
 
 /* Load second image */
-document.getElementById('btnLoadAfter').addEventListener('click', ()=>{
-  const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
-  inp.onchange = (e)=>{ const f=e.target.files[0]; if(!f) return; afterImageSrc = URL.createObjectURL(f); setThumb(afterImageSrc,'thumbAfter'); };
+document.getElementById('btnLoadAfter').addEventListener('click', () => {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*';
+  inp.onchange = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    afterImageSrc = URL.createObjectURL(f);
+    // set thumbnail preview for the "Dopo" slot
+    setThumb(afterImageSrc, 'thumbAfter');
+    // Also display the loaded "after" image on the main canvas so it can be viewed full size and colors selected
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      // hide placeholder and draw the after image onto the photo canvas using the same contain logic
+      stagePlaceholder.style.display = 'none';
+      drawImageToCanvas(img);
+      // push to undo stack so the state can be reverted if needed
+      saveState();
+    };
+    img.src = afterImageSrc;
+  };
   inp.click();
 });
 
@@ -509,14 +517,7 @@ async function exportPdf(){
 // Removed export PDF listeners because the buttons are removed
 
 /* Save notes */
-document.getElementById('saveNote').addEventListener('click', ()=>{
-  localStorage.setItem('visagismo_note', document.getElementById('jobNotes').value);
-  alert('Nota salvata localmente');
-});
-window.addEventListener('load', ()=>{
-  const n = localStorage.getItem('visagismo_note');
-  if(n) document.getElementById('jobNotes').value = n;
-});
+// Removed save note and localStorage handling since the job description feature has been removed.
 
 /* open Gemini */
 document.getElementById('openGemini').addEventListener('click', ()=> window.open('https://gemini.google.com','_blank'));
@@ -525,14 +526,7 @@ document.getElementById('openGemini').addEventListener('click', ()=> window.open
 document.getElementById('btnGenerateAI').addEventListener('click', ()=> window.open('https://gemini.google.com','_blank'));
 
 /* toggle visibility of the job description area */
-document.getElementById('jobToggle').addEventListener('click', ()=>{
-  const content = document.getElementById('jobContent');
-  const icon = document.getElementById('jobIcon');
-  const hidden = content.style.display === 'none' || content.style.display === '';
-  content.style.display = hidden ? 'block' : 'none';
-  // flip the arrow icon
-  icon.textContent = hidden ? '▲' : '▼';
-});
+// Removed job description toggle handler since the job description feature has been removed.
 
 /* load image to canvas when mainImage set */
 function drawImageIfReady(){
